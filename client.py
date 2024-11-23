@@ -38,7 +38,11 @@ class Client:
       if not server_message.strip():
         os._exit(0)
       # Add some color to the console.
-      print("\033[1;31;40m" + server_message + "\033[0m")
+      # Check if the message is a server acknowledgment
+      if server_message.startswith("Server:"):
+          print("\033[1;32;40m" + server_message + "\033[0m")  # Green for acknowledgment
+      else:
+          print("\033[1;31;40m" + server_message + "\033[0m")  # Red for regular messages
       
 if __name__ == '__main__':
   Client('127.0.0.1', 7632)

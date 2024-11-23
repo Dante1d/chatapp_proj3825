@@ -33,27 +33,45 @@ class Server:
         client_name = client['client_name']
         client_socket = client['client_socket']
         while True:
-            # Listen out for messages and broadcast the message to all clients.
-            client_message = client_socket.recv(1024).decode()
-            # If the message is bye, remove the client from the list of clients and
-            # close down the socket.
-            if client_message.strip() == client_name + ": bye" or not client_message.strip():
-                self.broadcast_message(client_name, client_name + " has left the chat!")
+            try:
+                # Listen for incoming messages
+                client_message = client_socket.recv(1024).decode()
+                if not client_message.strip():
+                    raise ConnectionResetError
+
+                # If the message is "bye", disconnect the client
+                if client_message.strip() == f"{client_name}: bye":
+                    self.broadcast_message(client_name, f"{client_name} has left the chat!")
+                    Server.Clients.remove(client)
+                    client_socket.close()
+                    break
+
+                # Broadcast the message to all other clients
+                self.broadcast_message(client_name, client_message, receipt=False)
+                
+                # Send a receipt confirmation back to the sender
+                self.broadcast_message(client_name, "Your message was received.", receipt=True)
+            except (ConnectionResetError, BrokenPipeError):
+                self.broadcast_message(client_name, f"{client_name} has left the chat unexpectedly.")
                 Server.Clients.remove(client)
                 client_socket.close()
                 break
-            else: 
-                # Send the message to all other clients
-                self.broadcast_message(client_name, client_message)
 
     # Loop through the clients and send the message down each socket.
     # Skip the socket if it's the same client.
-    def broadcast_message(self, sender_name, message):
+    def broadcast_message(self, sender_name, message, receipt=False):
         for client in self.Clients:
             client_socket = client['client_socket']
             client_name = client['client_name']
-            if client_name != sender_name:
-                client_socket.send(message.encode())
+
+            if receipt:
+                # Send receipt only to the sender
+                if client_name == sender_name:
+                    client_socket.send(f"Server: {message}".encode())
+            else:
+                # Send the message to all other clients
+                if client_name != sender_name:
+                    client_socket.send(message.encode())
 
 if __name__ == '__main__':
   server = Server('127.0.0.1', 7632)
